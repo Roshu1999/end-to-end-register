@@ -1,6 +1,6 @@
+using IdentityCMS.helpers;
 using IdentityCMS.Models;
 using IdentityCMS.Repo;
-using IdentityCMS.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -17,11 +17,15 @@ builder.Services.AddDbContext<CustomDbContext>(opt =>
 opt.UseSqlServer(builder.Configuration.GetConnectionString("registerConn")));
 
 
-
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddScoped<IUserService, UserService>();
+var appSettingSection = builder.Configuration.GetSection("AppSettings");
+builder.Services.Configure<helperAppSettings>(appSettingSection);
+builder.Services.AddSingleton<IPasswordHasher, PasswordHasher>();
+builder.Services.AddSingleton<IAuth,AuthService>();
+builder.Services.AddSingleton<ITokenService,TokenService>();
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -42,7 +46,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8
-                .GetBytes(builder.Configuration.GetSection("AppSettings:Token").Value)),
+                .GetBytes(builder.Configuration.GetSection("AppSettings:Secret").Value)),
             ValidateIssuer = false,
             ValidateAudience = false,
             ClockSkew = TimeSpan.Zero

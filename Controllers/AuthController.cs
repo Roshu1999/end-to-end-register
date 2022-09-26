@@ -1,6 +1,5 @@
 ﻿using IdentityCMS.Models;
 using IdentityCMS.Repo;
-using IdentityCMS.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -17,19 +16,21 @@ namespace IdentityCMS.Controllers
     {
         public static registeruser register = new registeruser();
         private readonly IConfiguration _configuration;
-        private readonly IUserService _userService;
+        private readonly IAuth _userService;
         private readonly IHttpContextAccessor _cxtAccessor;
         private readonly CustomDbContext _customDbContext;
         private readonly IRepo _repo;
+        private readonly IPasswordHasher _passwordHasher;
 
 
-        public AuthController(IConfiguration configuration, IUserService userService , IHttpContextAccessor cxtAccessor,
-            CustomDbContext _customDbContext , IRepo r)
+        public AuthController(IConfiguration configuration, IHttpContextAccessor cxtAccessor, IAuth auth,
+            CustomDbContext _customDbContext , IRepo r, IPasswordHasher passwordHasher)
         {
             _configuration = configuration;
-            _userService = userService;
+            _userService = auth;
             _cxtAccessor = cxtAccessor;
             _repo = r;
+            _passwordHasher = passwordHasher;
             this._customDbContext = _customDbContext;
         }
 
@@ -58,6 +59,28 @@ namespace IdentityCMS.Controllers
                 return StatusCode(429, status);
             }
         }
+
+        [AllowAnonymous]
+        [Route("login")]
+        [HttpPost]
+        public IActionResult LoginCheck([FromBody] loginuser login)
+        {
+
+
+            _customDbContext.BuildConnectionstring(_configuration.GetConnectionString("registerConn"));
+
+            var user = _customDbContext.registerCMS.FirstOrDefault(u => u.username == login.username);
+            if (user == null || !_passwordHasher.VerifyIdentityV3Hash(login.password, user.password)) return BadRequest(new { message = "Invalid - Username or password" });
+
+            var jwtToken = _userService.GenerateToken(user.username, user.password);
+
+
+
+            if (jwtToken == null)
+                return BadRequest(new { message = "Invalid Credentials" });
+
+            return Ok(jwtToken);
+        }
     }
 }
 
@@ -79,3 +102,20 @@ _customDbContext.registerCMS.Add(new registeruser
 await _customDbContext.SaveChangesAsync();
 user = _customDbContext.registerCMS.SingleOrDefault(u => u.username == value.username);
 return Ok(new { message = "Account Created! Please Login..." });*/
+
+
+
+
+
+
+/*_customDbContext.BuildConnectionstring(_configuration.GetConnectionString("registerConn"));
+
+var user = _customDbContext.registerCMS.SingleOrDefault(u => u.username == login.username && u.password == login.password);
+if (user == null)
+{
+    return BadRequest(new { message = "Invalid - Username or password" });
+}
+else
+{
+    return Ok(new { message = "Account Logged!..." });
+}*/
